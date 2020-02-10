@@ -9,7 +9,7 @@ end
 
 local bomb_range = tonumber(minetest.settings:get("torch_bomb_max_range")) or 40
 
--- 12 torches (torch grenade?)
+-- 12 torches (torch grenade? Not currently used)
 local ico1 = {
 	vector.new(0.000000,	-1.000000,	0.000000),
 	vector.new(0.723600,	-0.447215,	0.525720),
@@ -25,7 +25,7 @@ local ico1 = {
 	vector.new(0.000000,	1.000000,	0.000000),
 }
 
--- 42 torches
+-- 42 torches, 1*bomb_range
 local ico2 = {
 	vector.new(0.000000,	-1.000000,	0.000000),
 	vector.new(0.723607,	-0.447220,	0.525725),
@@ -70,8 +70,12 @@ local ico2 = {
 	vector.new(-0.425323,	0.850654,	-0.309011),
 	vector.new(0.162456,	0.850654,	-0.499995),
 }
+-- Pre-multiply the range into these unit vectors
+for i, pos in ipairs(ico2) do
+	ico2[i] = vector.multiply(pos, bomb_range)
+end
 
--- 162 torches (maybe for a mega-bomb with big range)
+-- 162 torches, 3* bomb_range
 local ico3 = {
 	vector.new(0.000000,	-1.000000,	0.000000), 
 	vector.new(0.723607,	-0.447220,	0.525725),
@@ -236,6 +240,10 @@ local ico3 = {
 	vector.new(0.138199,	-0.894429,	0.425321),
 	vector.new(0.361805,	-0.723611,	0.587779),
 }
+-- Pre-multiply the range into these unit vectors
+for i, pos in ipairs(ico3) do
+	ico3[i] = vector.multiply(pos, bomb_range*3)
+end
 
 local function find_target(raycast)
 	local next_pointed = raycast:next()
@@ -257,13 +265,13 @@ end
 
 local torch_def_on_place = minetest.registered_nodes["default:torch"].on_place
 
-local function kerblam(pos, placer, dirs, range)
+local function kerblam(pos, placer, dirs, min_range)
 	local targets = {}
 	for _, pos2 in ipairs(dirs) do
-		local raycast = minetest.raycast(pos, vector.add(pos, vector.multiply(pos2, range)), false, true)
+		local raycast = minetest.raycast(pos, vector.add(pos, pos2), false, true)
 		local target_pointed = find_target(raycast)
 		if target_pointed then
-			if vector.distance(pos, target_pointed.above) > 5 then
+			if vector.distance(pos, target_pointed.above) > min_range then
 				table.insert(targets, target_pointed)
 			end
 		end
@@ -272,37 +280,59 @@ local function kerblam(pos, placer, dirs, range)
 	for _, target in ipairs(targets) do
 		if minetest.get_item_group(minetest.get_node(target.above).name, "torch") == 0 then -- TODO remove this check after culling close-together targets
 			torch_def_on_place(ItemStack("default:torch"), placer, target)
+			local target_pos = target.above
+			local dir_back = vector.normalize(vector.subtract(pos, target_pos))
+			local vel_back = vector.multiply(dir_back, 10)
+			minetest.add_particlespawner({
+				amount = math.random(1,6),
+				time = 0.1,
+				minpos = target_pos,
+				maxpos = target_pos,
+				minvel = vector.subtract(dir_back, 2),
+				maxvel = vector.add(dir_back, 2),
+				minacc = {x=0, y=-9, z=0},
+				maxacc = {x=0, y=-9, z=0},
+				minexptime = 1,
+				maxexptime = 2,
+				minsize = 1,
+				maxsize = 2,
+				collisiondetection = true,
+				collision_removal = false,
+				texture = "torch_bomb_shard.png",
+			})
 		end
 	end	
 end
 
-minetest.register_node("torch_bomb:torch_bomb", {
-	description = S("Torch Bomb"),
-	drawtype = "normal",  -- See "Node drawtypes"
-	tiles = {"torch_bomb_top.png", "torch_bomb_bottom.png", "torch_bomb_side.png"},
-	paramtype = "light",  -- See "Nodes"
-	paramtype2 = "facedir",  -- See "Nodes"
-	
-	groups = {tnt = 1},
-	
-	on_punch = function(pos, node, puncher)
-		if puncher:get_wielded_item():get_name() == "default:torch" then
-			minetest.set_node(pos, {name = "torch_bomb:torch_bomb_burning"})
-			minetest.get_meta(pos):set_string("torch_bomb_ignitor", puncher:get_player_name())
-			minetest.log("action", puncher:get_player_name() .. " ignites " .. node.name .. " at " ..
-				minetest.pos_to_string(pos))
-		end
-	end,
+local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, texture)
 
-	on_ignite = function(pos) -- used by TNT mod
-		minetest.set_node(pos, {name = "torch_bomb:torch_bomb_burning"})
-	end,
-})
-
-minetest.register_node("torch_bomb:torch_bomb_burning", {
-	description = S("Torch Bomb"),
-	drawtype = "normal",  -- See "Node drawtypes"
-	tiles = {{
+	minetest.register_node("torch_bomb:" .. name, {
+		description = desc,
+		drawtype = "normal", 
+		tiles = {"torch_bomb_top.png", "torch_bomb_bottom.png", "torch_bomb_side_base.png^"..texture},
+		paramtype = "light",
+		paramtype2 = "facedir",
+		
+		groups = {tnt = 1, oddly_breakable_by_hand = 1},
+		
+		on_punch = function(pos, node, puncher)
+			if puncher:get_wielded_item():get_name() == "default:torch" then
+				minetest.set_node(pos, {name = "torch_bomb:"..name.."_burning"})
+				minetest.get_meta(pos):set_string("torch_bomb_ignitor", puncher:get_player_name())
+				minetest.log("action", puncher:get_player_name() .. " ignites " .. node.name .. " at " ..
+					minetest.pos_to_string(pos))
+			end
+		end,
+	
+		on_ignite = function(pos) -- used by TNT mod
+			minetest.set_node(pos, {name = "torch_bomb:"..name.."_burning"})
+		end,
+	})
+	
+	minetest.register_node("torch_bomb:"..name.."_burning", {
+		description = desc,
+		drawtype = "normal",  -- See "Node drawtypes"
+		tiles = {{
 				name = "torch_bomb_top_burning_animated.png",
 				animation = {
 					type = "vertical_frames",
@@ -311,41 +341,59 @@ minetest.register_node("torch_bomb:torch_bomb_burning", {
 					length = 1,
 				}
 			},
-		"torch_bomb_bottom.png", "torch_bomb_side.png"},
-	groups = {falling_node = 1, not_in_creative_inventory = 1},
-	paramtype = "light",
-	paramtype2 = "facedir",
-	light_source = 6,
-	
-	on_construct = function(pos)
-		if tnt_modpath then
-			minetest.sound_play("tnt_ignite", {pos = pos})
-		end
-		minetest.get_node_timer(pos):start(3)
-		minetest.check_for_falling(pos)
-	end,
-	
-	on_timer = function(pos, elapsed)
-		local ignitor_name = minetest.get_meta(pos):get("torch_bomb_ignitor")
-		local puncher
-		if ignitor_name then
-			puncher = minetest.get_player_by_name(ignitor_name)
-		end
-		minetest.set_node(pos, {name="air"})
-		if tnt_modpath then
-			tnt.boom(pos, {radius=1, damage_radius=3})
-		end
-		kerblam(pos, puncher, ico2, bomb_range)
-	end,
-})
+			"torch_bomb_bottom.png", "torch_bomb_side_base.png^"..texture},
+		groups = {falling_node = 1, not_in_creative_inventory = 1},
+		paramtype = "light",
+		paramtype2 = "facedir",
+		light_source = 6,
+		
+		on_construct = function(pos)
+			if tnt_modpath then
+				minetest.sound_play("tnt_ignite", {pos = pos})
+			end
+			minetest.get_node_timer(pos):start(3)
+			minetest.check_for_falling(pos)
+		end,
+		
+		on_timer = function(pos, elapsed)
+			local ignitor_name = minetest.get_meta(pos):get("torch_bomb_ignitor")
+			local puncher
+			if ignitor_name then
+				puncher = minetest.get_player_by_name(ignitor_name)
+			end
+			minetest.set_node(pos, {name="air"})
+			if tnt_modpath then
+				tnt.boom(pos, {radius=blast_radius, damage_radius=blast_radius+3})
+			end
+			kerblam(pos, puncher, dirs, min_range)
+		end,
+	})
+
+end
+
+register_torch_bomb("torch_bomb", S("Torch Bomb"), ico2, 5, 1, "torch_bomb_one_torch.png")
+register_torch_bomb("mega_torch_bomb", S("Mega Torch Bomb"), ico3, 15, 3, "torch_bomb_three_torches.png")
 
 if enable_tnt and tnt_modpath then
 	minetest.register_craft({
 		output = "torch_bomb:torch_bomb",
 		recipe = {
-			{'group:wood', 'default:coalblock', 'group:wood'},
+			{'default:coalblock', 'tnt:tnt_stick', 'default:coalblock'},
 			{'group:wood', 'tnt:tnt_stick', 'group:wood'},
-			{'group:wood', 'group:wood', 'group:wood'},
+			{'group:wood', 'tnt:tnt_stick', 'group:wood'},
 		},
 	})
+	
+	minetest.register_craft({
+		type = "shapeless",
+		output = "torch_bomb:mega_torch_bomb",
+		recipe = {"torch_bomb:torch_bomb", "torch_bomb:torch_bomb", "torch_bomb:torch_bomb"},
+	})
+	
+		minetest.register_craft({
+		type = "shapeless",
+		output = "torch_bomb:torch_bomb 3",
+		recipe = {"torch_bomb:mega_torch_bomb"},
+	})
+
 end

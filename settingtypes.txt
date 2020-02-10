@@ -1,0 +1,1 @@
+torch_bomb_max_range (Max range) int 40

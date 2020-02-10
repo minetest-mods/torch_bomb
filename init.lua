@@ -352,7 +352,6 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 				minetest.sound_play("tnt_ignite", {pos = pos})
 			end
 			minetest.get_node_timer(pos):start(3)
-			minetest.check_for_falling(pos)
 		end,
 		
 		on_timer = function(pos, elapsed)

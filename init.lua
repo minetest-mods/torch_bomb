@@ -11,8 +11,8 @@ if enable_tnt == nil then
 	enable_tnt = minetest.is_singleplayer()
 end
 
-local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 40
-local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 30
+local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50
+local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 25
 
 -- 12 torches grenade
 local ico1 = {

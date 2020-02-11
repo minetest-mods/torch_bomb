@@ -1,2 +1,2 @@
-torch_bomb_range (Max range of basic torch bomb) int 40
-torch_bomb_grenade_range (Max range of torch grenade) int 30
+torch_bomb_range (Max range of basic torch bomb) int 50
+torch_bomb_grenade_range (Max range of torch grenade) int 25

@@ -1,5 +1,9 @@
+local modpath = minetest.get_modpath(minetest.get_current_modname())
 local tnt_modpath = minetest.get_modpath("tnt")
 local S = minetest.get_translator("tnt")
+
+local FakePlayer = dofile(modpath .. "/" .. "class_fakeplayer.lua")
+local fakeplayer = FakePlayer.create({x=0,y=0,z=0}, "torch_bomb")
 
 -- Default to enabled when in singleplayer
 local enable_tnt = minetest.settings:get_bool("enable_tnt")
@@ -7,9 +11,10 @@ if enable_tnt == nil then
 	enable_tnt = minetest.is_singleplayer()
 end
 
-local bomb_range = tonumber(minetest.settings:get("torch_bomb_max_range")) or 40
+local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 40
+local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 30
 
--- 12 torches (torch grenade? Not currently used)
+-- 12 torches grenade
 local ico1 = {
 	vector.new(0.000000,	-1.000000,	0.000000),
 	vector.new(0.723600,	-0.447215,	0.525720),
@@ -24,6 +29,10 @@ local ico1 = {
 	vector.new(0.894425,	0.447215,	0.000000),
 	vector.new(0.000000,	1.000000,	0.000000),
 }
+-- Pre-multiply the range into these unit vectors
+for i, pos in ipairs(ico1) do
+	ico1[i] = vector.multiply(pos, grenade_range)
+end
 
 -- 42 torches, 1*bomb_range
 local ico2 = {
@@ -266,6 +275,7 @@ end
 local torch_def_on_place = minetest.registered_nodes["default:torch"].on_place
 
 local function kerblam(pos, placer, dirs, min_range)
+	pos = vector.round(pos)
 	local targets = {}
 	for _, pos2 in ipairs(dirs) do
 		local raycast = minetest.raycast(pos, vector.add(pos, pos2), false, true)
@@ -276,6 +286,14 @@ local function kerblam(pos, placer, dirs, min_range)
 			end
 		end
 	end
+
+	if not placer then
+		placer = fakeplayer
+		fakeplayer:update(pos, "torch_bomb")
+	end
+	
+	minetest.log("action", placer:get_player_name() .. " detonated a torch bomb at " ..
+		minetest.pos_to_string(pos) .. " and placed " .. #targets .. " torches.")
 
 	for _, target in ipairs(targets) do
 		if minetest.get_item_group(minetest.get_node(target.above).name, "torch") == 0 then -- TODO remove this check after culling close-together targets
@@ -373,13 +391,84 @@ end
 register_torch_bomb("torch_bomb", S("Torch Bomb"), ico2, 5, 1, "torch_bomb_one_torch.png")
 register_torch_bomb("mega_torch_bomb", S("Mega Torch Bomb"), ico3, 15, 3, "torch_bomb_three_torches.png")
 
+-----------------------------------------------------------------------------------------------------------------
+-- Throwable torch grenade
+
+local throw_velocity = 20
+local gravity = {x=0, y=-9.81, z=0}
+
+minetest.register_craftitem("torch_bomb:torch_grenade", {
+	description = S("Torch Grenade"),
+	inventory_image = "torch_bomb_torch_grenade.png",
+	on_use = function(itemstack, user, pointed_thing)
+		local player_pos = user:get_pos()
+		local obj = minetest.add_entity({x = player_pos.x, y = player_pos.y + 1.5, z = player_pos.z}, "torch_bomb:torch_grenade_entity")
+		local dir = user:get_look_dir()
+		obj:setvelocity(vector.multiply(dir, throw_velocity))
+		obj:setacceleration(gravity)
+		obj:setyaw(user:get_look_yaw()+math.pi)
+		local lua_entity = obj:get_luaentity()
+		lua_entity.player_name = user:get_player_name()
+		if not minetest.setting_getbool("creative_mode") and not minetest.check_player_privs(user, "creative") then
+			itemstack:set_count(itemstack:get_count() - 1)
+		end
+		return itemstack
+	end
+})
+
+minetest.register_entity("torch_bomb:torch_grenade_entity", {
+	initial_properties = {
+		physical = false,
+		visual = "sprite",
+		visual_size = {x=0.5, y=0.5},
+		textures = {"torch_bomb_torch_grenade.png"},
+		collisionbox = {0,0,0,0,0,0},
+		glow = 8,
+	},
+	on_step = function(self, dtime)
+		local object = self.object
+		local lastpos = self.lastpos
+	
+		local pos = object:get_pos()
+		local node = minetest.get_node(pos)
+
+		if lastpos ~= nil and node.name ~= "air" then
+			lastpos = vector.round(lastpos)
+			local luaentity = object:get_luaentity()
+			local player_name = luaentity.player_name
+			local player
+			if player_name then
+				player = minetest.get_player_by_name(player_name)
+			end
+			object:remove()
+			if tnt_modpath then
+				tnt.boom(lastpos, {radius=1, damage_radius=2})
+			end
+			kerblam(lastpos, player, ico1, 2)
+		end
+		self.lastpos={x=pos.x, y=pos.y, z=pos.z}
+	end,
+})
+
+----------------------------------------------------------------------
+-- Crafting
+
 if enable_tnt and tnt_modpath then
+	minetest.register_craft({
+		output = "torch_bomb:torch_grenade",
+		recipe = {
+			{'default:coalblock'},
+			{'group:wood'},
+			{'tnt:tnt_stick'},
+		},
+	})
+
 	minetest.register_craft({
 		output = "torch_bomb:torch_bomb",
 		recipe = {
-			{'default:coalblock', 'tnt:tnt_stick', 'default:coalblock'},
-			{'group:wood', 'tnt:tnt_stick', 'group:wood'},
-			{'group:wood', 'tnt:tnt_stick', 'group:wood'},
+			{'default:coalblock', 'default:coalblock', 'default:coalblock'},
+			{'group:wood', 'group:wood', 'group:wood'},
+			{'tnt:tnt_stick', 'tnt:tnt_stick', 'tnt:tnt_stick'},
 		},
 	})
 	
@@ -389,10 +478,21 @@ if enable_tnt and tnt_modpath then
 		recipe = {"torch_bomb:torch_bomb", "torch_bomb:torch_bomb", "torch_bomb:torch_bomb"},
 	})
 	
-		minetest.register_craft({
+	minetest.register_craft({
 		type = "shapeless",
 		output = "torch_bomb:torch_bomb 3",
 		recipe = {"torch_bomb:mega_torch_bomb"},
 	})
 
+	minetest.register_craft({
+		type = "shapeless",
+		output = "torch_bomb:torch_bomb",
+		recipe = {"torch_bomb:torch_grenade", "torch_bomb:torch_grenade", "torch_bomb:torch_grenade"},
+	})
+	
+	minetest.register_craft({
+		type = "shapeless",
+		output = "torch_bomb:torch_grenade 3",
+		recipe = {"torch_bomb:torch_bomb"},
+	})
 end

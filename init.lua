@@ -13,6 +13,7 @@ end
 
 local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50
 local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 25
+local torch_item = minetest.settings:get("torch_bomb_torch_item") or "default:torch"
 
 -- 12 torches grenade
 local ico1 = {
@@ -272,7 +273,10 @@ local function find_target(raycast)
 	end
 end
 
-local torch_def_on_place = minetest.registered_nodes["default:torch"].on_place
+local torch_def_on_place
+minetest.after(0, function()
+	torch_def_on_place = minetest.registered_nodes[torch_item].on_place
+end)
 
 local function kerblam(pos, placer, dirs, min_range)
 	pos = vector.round(pos)
@@ -297,7 +301,7 @@ local function kerblam(pos, placer, dirs, min_range)
 
 	for _, target in ipairs(targets) do
 		if minetest.get_item_group(minetest.get_node(target.above).name, "torch") == 0 then -- TODO remove this check after culling close-together targets
-			torch_def_on_place(ItemStack("default:torch"), placer, target)
+			torch_def_on_place(ItemStack(torch_item), placer, target)
 			local target_pos = target.above
 			local dir_back = vector.normalize(vector.subtract(pos, target_pos))
 			local vel_back = vector.multiply(dir_back, 10)

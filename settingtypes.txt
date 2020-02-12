@@ -1,3 +1,4 @@
-torch_bomb_range (Max range of basic torch bomb) int 50
 torch_bomb_grenade_range (Max range of torch grenade) int 25
+torch_bomb_range (Max range of basic torch bomb) int 50
+torch_bomb_mega_range (Max range of mega torch bomb) int 150
 torch_bomb_torch_item (Item that torchbombs fire into walls) string default:torch

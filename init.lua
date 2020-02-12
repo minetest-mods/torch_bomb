@@ -11,8 +11,9 @@ if enable_tnt == nil then
 	enable_tnt = minetest.is_singleplayer()
 end
 
-local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50
 local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 25
+local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50
+local mega_bomb_range = tonumber(minetest.settings:get("torch_bomb_mega_range")) or 150
 local torch_item = minetest.settings:get("torch_bomb_torch_item") or "default:torch"
 
 -- 12 torches grenade
@@ -252,7 +253,7 @@ local ico3 = {
 }
 -- Pre-multiply the range into these unit vectors
 for i, pos in ipairs(ico3) do
-	ico3[i] = vector.multiply(pos, bomb_range*3)
+	ico3[i] = vector.multiply(pos, mega_bomb_range)
 end
 
 local function find_target(raycast)

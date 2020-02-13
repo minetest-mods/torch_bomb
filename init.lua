@@ -16,6 +16,12 @@ local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50
 local mega_bomb_range = tonumber(minetest.settings:get("torch_bomb_mega_range")) or 150
 local torch_item = minetest.settings:get("torch_bomb_torch_item") or "default:torch"
 
+local enable_rockets = minetest.settings:get_bool("torch_bomb_enable_rockets", true)
+local rocket_max_fuse = tonumber(minetest.settings:get("torch_bomb_max_fuse")) or 14 -- 14 seconds at 1 m/s^2 is 98 meters traveled
+local default_fuse = rocket_max_fuse/2 -- 7 seconds at 1 m/s^2 is 24.5 meters traveled
+
+local enable_grenade = minetest.settings:get_bool("torch_bomb_enable_grenades", true)
+
 -- 12 torches grenade
 local ico1 = {
 	vector.new(0.000000,	-1.000000,	0.000000),
@@ -327,12 +333,70 @@ local function kerblam(pos, placer, dirs, min_range)
 	end	
 end
 
+local player_setting_fuse_at = {}
+
+local function rocket_formspec(fuse_length)
+	return "formspec_version[2]"..
+		"size[4,2]"..
+		"label[0.25,0.25;" .. S("Rocket accelerates at 1 m/s^2.\nFuse duration from 1 to @1 seconds:", rocket_max_fuse) .. "]"..
+		"field[0.75,1;1,0.5;seconds;;"..fuse_length.."]"..
+		"button_exit[2.5,1;0.5,0.5;set;"..S("Set").."]"
+end
+
+local function rocket_effects(obj, fuse)
+	minetest.add_particlespawner({
+		amount = 100*fuse,
+		time = fuse,
+		minpos = {x=0, y=0, z=0},
+		maxpos = {x=0, y=0, z=0},
+		minvel = {x=-1, y=-10, z=-1},
+		maxvel = {x=1, y=-12, z=1},
+		minacc = {x=0, y=0, z=0},
+		maxacc = {x=0, y=0, z=0},
+		minexptime = 1,
+		maxexptime = 1,
+		minsize = 3,
+		maxsize = 3,
+		collisiondetection = true,
+		collision_removal = true,
+		attached = obj,
+		texture = "smoke_puff.png",
+		glow = 8
+	})
+end
+
+if enable_rockets then
+	minetest.register_on_player_receive_fields(function(player, formname, fields)
+		if formname == "torch_bomb:torch_rocket" then
+			local player_name = player:get_player_name()
+			local pos = player_setting_fuse_at[player_name]
+			local seconds = tonumber(fields.seconds or "")
+			
+			if not pos or not seconds then
+				player_setting_fuse_at[player_name] = nil
+				return
+			end
+			local node = minetest.get_node(pos)
+			if minetest.get_item_group(node.name, "torch_bomb_rocket") == 0 then
+				player_setting_fuse_at[player_name] = nil
+				return
+			end
+			player_setting_fuse_at[player_name] = nil
+			seconds = math.max(math.min(seconds, rocket_max_fuse), 1)
+			local meta = minetest.get_meta(pos)
+			meta:set_string("fuse", seconds)
+		end
+	end)
+end
+
 local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, texture)
+
+	local side_texture = "torch_bomb_side_base.png^"..texture
 
 	minetest.register_node("torch_bomb:" .. name, {
 		description = desc,
 		drawtype = "normal", 
-		tiles = {"torch_bomb_top.png", "torch_bomb_bottom.png", "torch_bomb_side_base.png^"..texture},
+		tiles = {"torch_bomb_top.png", "torch_bomb_bottom.png", side_texture},
 		paramtype = "light",
 		paramtype2 = "facedir",
 		
@@ -364,7 +428,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 					length = 1,
 				}
 			},
-			"torch_bomb_bottom.png", "torch_bomb_side_base.png^"..texture},
+			"torch_bomb_bottom.png", side_texture},
 		groups = {falling_node = 1, not_in_creative_inventory = 1},
 		paramtype = "light",
 		paramtype2 = "facedir",
@@ -390,7 +454,151 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 			kerblam(pos, puncher, dirs, min_range)
 		end,
 	})
+	
+	if not enable_rockets then
+		return
+	end
+	
+	local rocket_bottom_texture = "torch_bomb_bottom.png^torch_bomb_rocket_bottom.png"
+	local rocket_side_texture = side_texture .. "^torch_bomb_rocket_side.png"
+	
+	minetest.register_entity("torch_bomb:"..name.."_rocket_entity", {
+		initial_properties = {
+			physical = false,
+			visual = "cube",
+			--visual_size = {x=0.5, y=0.5},
+			textures = {"torch_bomb_top.png", rocket_bottom_texture, rocket_side_texture, rocket_side_texture, rocket_side_texture, rocket_side_texture},
+			collisionbox = {0,0,0,0,0,0},
+			glow = 8,
+		},
+		on_activate = function(self, staticdata, dtime_s)
+			local data = minetest.deserialize(staticdata)
+			if not data then
+				self.fuse = -1
+				return
+			end
+			self.player_name = data.player_name
+			self.fuse = data.fuse
+		end,
+		
+		get_staticdata = function(self)
+			local data = {}
+			data.player_name = self.player_name
+			data.fuse = self.fuse
+			return minetest.serialize(data)
+		end,
+		
+		on_step = function(self, dtime)
+			local object = self.object
+			local lastpos = self.lastpos
+		
+			local pos = object:get_pos()
+			local node = minetest.get_node(pos)
+			local luaentity = object:get_luaentity()
+			local old_fuse = luaentity.fuse
+			local new_fuse = old_fuse - dtime
+			luaentity.fuse = new_fuse
+			if math.floor(old_fuse) ~= math.floor(new_fuse) then
+				-- should happen once per second
+				minetest.sound_play({name="tnt_gunpowder_burning"}, {
+					object = obj,
+					gain = 1.0,
+					max_hear_distance = 32,
+				})
+			end
+	
+			if (lastpos ~= nil and node.name ~= "air") or luaentity.fuse < 0 then
+				lastpos = vector.round(lastpos)
+				local player_name = luaentity.player_name
+				local player
+				if player_name then
+					player = minetest.get_player_by_name(player_name)
+				end
+				object:remove()
+				if tnt_modpath then
+					tnt.boom(lastpos, {radius=1, damage_radius=2})
+				end
+				kerblam(lastpos, player, dirs, min_range)
+			end
+			self.lastpos={x=pos.x, y=pos.y, z=pos.z}
+		end,
+	})
 
+	minetest.register_node("torch_bomb:"..name.."_rocket", {
+		description = S("@1 Rocket", desc),
+		drawtype = "normal", 
+		tiles = {"torch_bomb_top.png", rocket_bottom_texture, rocket_side_texture},
+		paramtype = "light",
+		paramtype2 = "facedir",
+	
+		groups = {tnt = 1, oddly_breakable_by_hand = 1, torch_bomb_rocket = 1},
+	
+		on_punch = function(pos, node, puncher)
+			if puncher:get_wielded_item():get_name() == "default:torch" then
+				local fuse = minetest.get_meta(pos):get("fuse")
+				minetest.set_node(pos, {name = "torch_bomb:"..name.."_rocket_burning"})
+				local meta = minetest.get_meta(pos)
+				meta:set_string("torch_bomb_ignitor", puncher:get_player_name())
+				meta:set_string("fuse", fuse)
+				minetest.log("action", puncher:get_player_name() .. " ignites " .. node.name .. " at " ..
+					minetest.pos_to_string(pos))
+			end
+		end,
+	
+		on_rightclick = function(pos, node, clicker, itemstack, pointed_thing)
+			local meta = minetest.get_meta(pos)
+			local fuse_length = tonumber(meta:get_string("fuse")) or default_fuse
+			local player_name = clicker:get_player_name()
+			player_setting_fuse_at[player_name] = pos
+			minetest.show_formspec(player_name, "torch_bomb:torch_rocket", rocket_formspec(fuse_length))
+		end,
+
+		on_ignite = function(pos) -- used by TNT mod
+			local fuse = minetest.get_meta(pos):get("fuse")
+			minetest.set_node(pos, {name = "torch_bomb:"..name.."_rocket_burning"})
+			minetest.get_meta(pos):set_string("fuse", fuse)
+		end,
+	})
+	
+	minetest.register_node("torch_bomb:"..name.."_rocket_burning", {
+		description = S("@1 Rocket", desc),
+		drawtype = "normal",
+		tiles = {{
+				name = "torch_bomb_top_burning_animated.png",
+				animation = {
+					type = "vertical_frames",
+					aspect_w = 16,
+					aspect_h = 16,
+					length = 1,
+				}
+			},
+			rocket_bottom_texture, rocket_side_texture},
+		groups = {falling_node = 1, not_in_creative_inventory = 1},
+		paramtype = "light",
+		paramtype2 = "facedir",
+		light_source = 6,
+	
+		on_construct = function(pos)
+			if tnt_modpath then
+				minetest.sound_play("tnt_ignite", {pos = pos})
+			end
+			minetest.get_node_timer(pos):start(3)
+		end,
+	
+		on_timer = function(pos, elapsed)
+			local meta = minetest.get_meta(pos)
+			local ignitor_name = meta:get("torch_bomb_ignitor")
+			local fuse = tonumber(meta:get_string("fuse")) or default_fuse
+			minetest.set_node(pos, {name="air"})
+	
+			local obj = minetest.add_entity(pos, "torch_bomb:"..name.."_rocket_entity")
+			obj:setacceleration({x=0, y=1, z=0})
+			local lua_entity = obj:get_luaentity()
+			lua_entity.player_name = ignitor_name
+			lua_entity.fuse = fuse
+			rocket_effects(obj, fuse)
+		end,
+	})
 end
 
 register_torch_bomb("torch_bomb", S("Torch Bomb"), ico2, 5, 1, "torch_bomb_one_torch.png")
@@ -399,61 +607,81 @@ register_torch_bomb("mega_torch_bomb", S("Mega Torch Bomb"), ico3, 15, 3, "torch
 -----------------------------------------------------------------------------------------------------------------
 -- Throwable torch grenade
 
-local throw_velocity = 20
-local gravity = {x=0, y=-9.81, z=0}
+if enable_grenade then
 
-minetest.register_craftitem("torch_bomb:torch_grenade", {
-	description = S("Torch Grenade"),
-	inventory_image = "torch_bomb_torch_grenade.png",
-	on_use = function(itemstack, user, pointed_thing)
-		local player_pos = user:get_pos()
-		local obj = minetest.add_entity({x = player_pos.x, y = player_pos.y + 1.5, z = player_pos.z}, "torch_bomb:torch_grenade_entity")
-		local dir = user:get_look_dir()
-		obj:setvelocity(vector.multiply(dir, throw_velocity))
-		obj:setacceleration(gravity)
-		obj:setyaw(user:get_look_yaw()+math.pi)
-		local lua_entity = obj:get_luaentity()
-		lua_entity.player_name = user:get_player_name()
-		if not minetest.setting_getbool("creative_mode") and not minetest.check_player_privs(user, "creative") then
-			itemstack:set_count(itemstack:get_count() - 1)
-		end
-		return itemstack
-	end
-})
-
-minetest.register_entity("torch_bomb:torch_grenade_entity", {
-	initial_properties = {
-		physical = false,
-		visual = "sprite",
-		visual_size = {x=0.5, y=0.5},
-		textures = {"torch_bomb_torch_grenade.png"},
-		collisionbox = {0,0,0,0,0,0},
-		glow = 8,
-	},
-	on_step = function(self, dtime)
-		local object = self.object
-		local lastpos = self.lastpos
+	local throw_velocity = 20
+	local gravity = {x=0, y=-9.81, z=0}
 	
-		local pos = object:get_pos()
-		local node = minetest.get_node(pos)
-
-		if lastpos ~= nil and node.name ~= "air" then
-			lastpos = vector.round(lastpos)
-			local luaentity = object:get_luaentity()
-			local player_name = luaentity.player_name
-			local player
-			if player_name then
-				player = minetest.get_player_by_name(player_name)
+	minetest.register_craftitem("torch_bomb:torch_grenade", {
+		description = S("Torch Grenade"),
+		inventory_image = "torch_bomb_torch_grenade.png",
+		on_use = function(itemstack, user, pointed_thing)
+			local player_pos = user:get_pos()
+			local obj = minetest.add_entity({x = player_pos.x, y = player_pos.y + 1.5, z = player_pos.z}, "torch_bomb:torch_grenade_entity")
+			local dir = user:get_look_dir()
+			obj:setvelocity(vector.multiply(dir, throw_velocity))
+			obj:setacceleration(gravity)
+			obj:setyaw(user:get_look_yaw()+math.pi)
+			local lua_entity = obj:get_luaentity()
+			lua_entity.player_name = user:get_player_name()
+			
+			minetest.sound_play({name="tnt_ignite"},
+			{
+				object = object,
+				gain = 1.0,
+				max_hear_distance = 32,
+			})
+			
+			if not minetest.setting_getbool("creative_mode") and not minetest.check_player_privs(user, "creative") then
+				itemstack:set_count(itemstack:get_count() - 1)
 			end
-			object:remove()
-			if tnt_modpath then
-				tnt.boom(lastpos, {radius=1, damage_radius=2})
-			end
-			kerblam(lastpos, player, ico1, 2)
+			
+			return itemstack
 		end
-		self.lastpos={x=pos.x, y=pos.y, z=pos.z}
-	end,
-})
+	})
+	
+	minetest.register_entity("torch_bomb:torch_grenade_entity", {
+		initial_properties = {
+			physical = false,
+			visual = "sprite",
+			visual_size = {x=0.5, y=0.5},
+			textures = {"torch_bomb_torch_grenade.png"},
+			collisionbox = {0,0,0,0,0,0},
+			glow = 8,
+		},
+		
+		on_activate = function(self, staticdata, dtime_s)
+			self.player_name = staticdata
+		end,
+		get_staticdata = function(self)
+			return self.player_name
+		end,
+		
+		on_step = function(self, dtime)
+			local object = self.object
+			local lastpos = self.lastpos
+		
+			local pos = object:get_pos()
+			local node = minetest.get_node(pos)
+	
+			if lastpos ~= nil and node.name ~= "air" then
+				lastpos = vector.round(lastpos)
+				local luaentity = object:get_luaentity()
+				local player_name = luaentity.player_name
+				local player
+				if player_name then
+					player = minetest.get_player_by_name(player_name)
+				end
+				object:remove()
+				if tnt_modpath then
+					tnt.boom(lastpos, {radius=1, damage_radius=2})
+				end
+				kerblam(lastpos, player, ico1, 2)
+			end
+			self.lastpos={x=pos.x, y=pos.y, z=pos.z}
+		end,
+	})
+end
 
 ----------------------------------------------------------------------
 -- Crafting
@@ -488,16 +716,33 @@ if enable_tnt and tnt_modpath then
 		output = "torch_bomb:torch_bomb 3",
 		recipe = {"torch_bomb:mega_torch_bomb"},
 	})
-
-	minetest.register_craft({
-		type = "shapeless",
-		output = "torch_bomb:torch_bomb",
-		recipe = {"torch_bomb:torch_grenade", "torch_bomb:torch_grenade", "torch_bomb:torch_grenade"},
-	})
 	
-	minetest.register_craft({
-		type = "shapeless",
-		output = "torch_bomb:torch_grenade 3",
-		recipe = {"torch_bomb:torch_bomb"},
-	})
+	if enable_grenade then
+
+		minetest.register_craft({
+			type = "shapeless",
+			output = "torch_bomb:torch_bomb",
+			recipe = {"torch_bomb:torch_grenade", "torch_bomb:torch_grenade", "torch_bomb:torch_grenade"},
+		})
+	
+		minetest.register_craft({
+			type = "shapeless",
+			output = "torch_bomb:torch_grenade 3",
+			recipe = {"torch_bomb:torch_bomb"},
+		})
+	end
+	
+	if enable_rockets then
+		minetest.register_craft({
+			type = "shapeless",
+			output = "torch_bomb:torch_bomb_rocket",
+			recipe = {"torch_bomb:torch_bomb", "tnt:tnt"},
+		})
+
+		minetest.register_craft({
+			type = "shapeless",
+			output = "torch_bomb:mega_torch_bomb_rocket",
+			recipe = {"torch_bomb:mega_torch_bomb", "tnt:tnt"},
+		})	
+	end
 end

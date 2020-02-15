@@ -517,7 +517,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 				end
 				object:remove()
 				if tnt_modpath then
-					tnt.boom(lastpos, {radius=1, damage_radius=2})
+					tnt.boom(lastpos, {radius=blast_radius, damage_radius=blast_radius+3})
 				end
 				kerblam(lastpos, player, dirs, min_range)
 			end

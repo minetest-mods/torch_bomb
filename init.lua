@@ -1,6 +1,7 @@
-local modpath = minetest.get_modpath(minetest.get_current_modname())
+local modname = minetest.get_current_modname()
+local modpath = minetest.get_modpath(modname)
 local tnt_modpath = minetest.get_modpath("tnt")
-local S = minetest.get_translator("tnt")
+local S = minetest.get_translator(modname)
 
 local FakePlayer = dofile(modpath .. "/" .. "class_fakeplayer.lua")
 local fakeplayer = FakePlayer.create({x=0,y=0,z=0}, "torch_bomb")

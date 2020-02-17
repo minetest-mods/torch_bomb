@@ -463,6 +463,18 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 	local rocket_bottom_texture = "torch_bomb_bottom.png^torch_bomb_rocket_bottom.png"
 	local rocket_side_texture = side_texture .. "^torch_bomb_rocket_side.png"
 	
+	local function entity_detonate(player_name, target)
+		--minetest.chat_send_all("entity detonate " .. (player_name or "") .. " " .. minetest.pos_to_string(target))
+		local player
+		if player_name then
+			player = minetest.get_player_by_name(player_name)
+		end
+		if tnt_modpath then
+			tnt.boom(target, {radius=blast_radius, damage_radius=blast_radius+3})
+		end
+		kerblam(target, player, dirs, min_range)
+	end
+	
 	minetest.register_entity("torch_bomb:"..name.."_rocket_entity", {
 		initial_properties = {
 			physical = false,
@@ -473,21 +485,26 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 			collisionbox = {0,0,0,0,0,0},
 			glow = 8,
 		},
+
 		on_activate = function(self, staticdata, dtime_s)
-			local data = minetest.deserialize(staticdata)
-			if not data then
-				self.fuse = -1
-				return
+			if staticdata == "detonated" then
+				self.object:remove()
 			end
-			self.player_name = data.player_name
-			self.fuse = data.fuse
 		end,
 		
 		get_staticdata = function(self)
-			local data = {}
-			data.player_name = self.player_name
-			data.fuse = self.fuse
-			return minetest.serialize(data)
+			local target = self.target
+			if target then
+				-- we're unloading an active rocket, skip ahead to detonation point
+				local pos = self.object:get_pos()
+				local raycast = minetest.raycast(pos, target, false, true)
+				local target_pointed = find_target(raycast)
+				if target_pointed then
+					target = target_pointed.above
+				end
+				minetest.after(self.fuse, entity_detonate, self.player_name, target)
+				return "detonated"
+			end
 		end,
 		
 		on_step = function(self, dtime)
@@ -497,30 +514,23 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 			local pos = object:get_pos()
 			local node = minetest.get_node(pos)
 			local luaentity = object:get_luaentity()
-			local old_fuse = luaentity.fuse
+			local old_fuse = luaentity.fuse or -1
 			local new_fuse = old_fuse - dtime
 			luaentity.fuse = new_fuse
 			if math.floor(old_fuse) ~= math.floor(new_fuse) then
 				-- should happen once per second
 				minetest.sound_play({name="tnt_gunpowder_burning"}, {
-					object = obj,
+					object = object,
 					gain = 1.0,
 					max_hear_distance = 32,
 				})
 			end
 	
-			if (lastpos ~= nil and node.name ~= "air") or luaentity.fuse < 0 then
+			if lastpos and (node.name ~= "air" or luaentity.fuse < 0) then
 				lastpos = vector.round(lastpos)
 				local player_name = luaentity.player_name
-				local player
-				if player_name then
-					player = minetest.get_player_by_name(player_name)
-				end
 				object:remove()
-				if tnt_modpath then
-					tnt.boom(lastpos, {radius=blast_radius, damage_radius=blast_radius+3})
-				end
-				kerblam(lastpos, player, dirs, min_range)
+				entity_detonate(player_name, lastpos)
 			end
 			self.lastpos={x=pos.x, y=pos.y, z=pos.z}
 		end,
@@ -598,6 +608,10 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 			local lua_entity = obj:get_luaentity()
 			lua_entity.player_name = ignitor_name
 			lua_entity.fuse = fuse
+			
+			local range = 0.5 * fuse * fuse -- s = vi * t + (1/2)*a*t*t
+			pos.y = pos.y + range
+			lua_entity.target = pos
 			rocket_effects(obj, fuse)
 		end,
 	})

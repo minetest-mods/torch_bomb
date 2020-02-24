@@ -10,4 +10,6 @@ Three torch bombs can be combined into one mega torch bomb. A mega torch bomb ca
 
 If you want to scatter torches from the center of a cavern to reach floor and ceiling more evenly a torch bomb can be upgraded to a torch rocket with the addition of more TNT. Torch rockets can have a fuse set up to 14 seconds, which at their acceleration of 1 meter per second squared will cause it to rise nearly 100 meters before detonating.
 
+For precision torch placement a set of torch crossbows are included: wooden, bronze, and steel.
+
 TNT is an optional dependency for this mod, but torch bombs don't have a crafting recipe (and don't produce a damaging blast) without the tnt mod enabled.

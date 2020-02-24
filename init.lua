@@ -23,6 +23,16 @@ local default_fuse = rocket_max_fuse/2 -- 7 seconds at 1 m/s^2 is 24.5 meters tr
 
 local enable_grenade = minetest.settings:get_bool("torch_bomb_enable_grenades", true)
 
+local crossbow_range = tonumber(minetest.settings:get("torch_bomb_base_crossbow_range")) or 25
+local enable_crossbows = minetest.settings:get_bool("torch_bomb_enable_crossbows", true)
+local torch_bow_uses = tonumber(minetest.settings:get("torch_bomb_base_crossbow_uses")) or 30
+
+-- Detect creative mod
+local creative_mod = minetest.get_modpath("creative")
+-- Cache creative mode setting as fallback if creative mod not present
+local creative_mode_cache = minetest.settings:get_bool("creative_mode")
+
+
 -- 12 torches grenade
 local ico1 = {
 	vector.new(0.000000,	-1.000000,	0.000000),
@@ -286,6 +296,38 @@ minetest.after(0, function()
 	torch_def_on_place = minetest.registered_nodes[torch_item].on_place
 end)
 
+local function play_bolt_hit(pos)
+	minetest.sound_play("torch_bomb_bolt_hit", {pos=pos, gain=1, max_hear_distance=32})
+end
+
+local function embed_torch(target, placer, pos)
+	if minetest.get_item_group(minetest.get_node(target.above).name, "torch") ~= 0 then
+		return
+	end
+	torch_def_on_place(ItemStack(torch_item), placer, target)
+	local target_pos = target.above
+	local dir_back = vector.normalize(vector.subtract(pos, target_pos))
+	local vel_back = vector.multiply(dir_back, 10)
+	minetest.add_particlespawner({
+		amount = math.random(1,6),
+		time = 0.1,
+		minpos = target_pos,
+		maxpos = target_pos,
+		minvel = vector.subtract(dir_back, 2),
+		maxvel = vector.add(dir_back, 2),
+		minacc = {x=0, y=-9, z=0},
+		maxacc = {x=0, y=-9, z=0},
+		minexptime = 1,
+		maxexptime = 2,
+		minsize = 1,
+		maxsize = 2,
+		collisiondetection = true,
+		collision_removal = false,
+		texture = "torch_bomb_shard.png",
+	})
+	minetest.after(math.random()*0.1, play_bolt_hit, pos)
+end
+
 local function kerblam(pos, placer, dirs, min_range)
 	pos = vector.round(pos)
 	local targets = {}
@@ -308,29 +350,7 @@ local function kerblam(pos, placer, dirs, min_range)
 		minetest.pos_to_string(pos) .. " and placed " .. #targets .. " torches.")
 
 	for _, target in ipairs(targets) do
-		if minetest.get_item_group(minetest.get_node(target.above).name, "torch") == 0 then -- TODO remove this check after culling close-together targets
-			torch_def_on_place(ItemStack(torch_item), placer, target)
-			local target_pos = target.above
-			local dir_back = vector.normalize(vector.subtract(pos, target_pos))
-			local vel_back = vector.multiply(dir_back, 10)
-			minetest.add_particlespawner({
-				amount = math.random(1,6),
-				time = 0.1,
-				minpos = target_pos,
-				maxpos = target_pos,
-				minvel = vector.subtract(dir_back, 2),
-				maxvel = vector.add(dir_back, 2),
-				minacc = {x=0, y=-9, z=0},
-				maxacc = {x=0, y=-9, z=0},
-				minexptime = 1,
-				maxexptime = 2,
-				minsize = 1,
-				maxsize = 2,
-				collisiondetection = true,
-				collision_removal = false,
-				texture = "torch_bomb_shard.png",
-			})
-		end
+		embed_torch(target, placer, pos)
 	end	
 end
 
@@ -648,7 +668,8 @@ if enable_grenade then
 				max_hear_distance = 32,
 			})
 			
-			if not minetest.setting_getbool("creative_mode") and not minetest.check_player_privs(user, "creative") then
+			if not ((creative_mod and creative.is_enabled_for(user:get_player_name())) or
+						creative_mode_cache) then
 				itemstack:set_count(itemstack:get_count() - 1)
 			end
 			
@@ -698,6 +719,81 @@ if enable_grenade then
 		end,
 	})
 end
+
+----------------------------------------------------------------------
+-- Torch crossbows
+
+local function register_torch_bow(name, desc, material, image, torch_bow_range, torch_bow_uses)
+    minetest.register_tool("torch_bomb:torch_crossbow_" .. name, {
+        description = S("@1 Torch Crossbow", desc),
+        inventory_image = image,
+        wield_scale = 1,
+        stack_max = 1,
+        groups = nil,
+		sound = {
+            breaks = "default_tool_break",
+        },
+        on_use = function(itemstack, user, pointed_thing)
+            if not user then return end
+            local inv = user:get_inventory()
+            local playerpos = user:get_pos()
+			playerpos.y = playerpos.y + 1.5
+
+            if not inv:contains_item("main", {name=torch_item, count=1}) then
+                minetest.sound_play("torch_bomb_crossbow_reload", {pos=playerpos, gain=1, max_hear_distance=64}) --out of ammo sound
+                return
+            end
+
+			if not ((creative_mod and creative.is_enabled_for(user:get_player_name())) or
+				creative_mode_cache) then
+				inv:remove_item("main", {name=torch_item, count=1})
+				itemstack:add_wear(65535/(torch_bow_uses-1))
+			end
+
+            local dir = user:get_look_dir()
+
+			local target = vector.add(playerpos, vector.multiply(dir, torch_bow_range))
+			
+			local raycast = minetest.raycast(playerpos, target, false, true)
+			local target_pointed = find_target(raycast)
+			if target_pointed then
+				embed_torch(target_pointed, user, playerpos)
+			end
+
+            minetest.sound_play("torch_bomb_crossbow_fire", {pos=playerpos, gain=1, max_hear_distance=64})
+
+            return itemstack
+        end,
+    })
+	
+	if minetest.get_modpath("farming") then
+		minetest.register_craft({
+			output = "torch_bomb:torch_crossbow_" .. name,
+			recipe = {
+				{material, torch_item, material},
+				{'farming:string', 'group:stick', 'farming:string'},
+				{'', 'group:stick', ''},
+			},
+		})
+	else
+		minetest.register_craft({
+			output = "torch_bomb:torch_crossbow_" .. name,
+			recipe = {
+				{material, torch_item, material},
+				{'', 'group:stick', ''},
+				{'', 'group:stick', ''},
+			},
+		})
+	end
+end
+
+
+if enable_crossbows then
+	register_torch_bow("wood", S("Wooden"), "group:wood", "torch_bomb_crossbow_wood.png", crossbow_range, torch_bow_uses)
+	register_torch_bow("bronze", S("Bronze"), "default:bronze_ingot", "torch_bomb_crossbow_bronze.png", crossbow_range * 2, torch_bow_uses * 3)
+	register_torch_bow("steel", S("Steel"), "default:steel_ingot", "torch_bomb_crossbow_steel.png", crossbow_range * 3, torch_bow_uses * 3)
+end
+
 
 ----------------------------------------------------------------------
 -- Crafting

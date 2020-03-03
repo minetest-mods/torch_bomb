@@ -1,5 +1,7 @@
 ## Torch Bomb
 
+![](screenshot.jpg)
+
 If you've ever been exploring a cave and found a deep, dark hole in the ground with no clue as to what was below, this is the mod for you.
 
 Throw a torch grenade and it will explode on impact, firing up to 12 torches 25 meters away from the detonation point to embed themselves in whatever surfaces they hit.

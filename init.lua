@@ -420,7 +420,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 		tiles = {"torch_bomb_top.png", "torch_bomb_bottom.png", side_texture},
 		paramtype = "light",
 		paramtype2 = "facedir",
-		
+		sounds = default.node_sound_wood_defaults(),
 		groups = {tnt = 1, oddly_breakable_by_hand = 1},
 		
 		on_punch = function(pos, node, puncher)
@@ -450,10 +450,12 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 				}
 			},
 			"torch_bomb_bottom.png", side_texture},
+		sounds = default.node_sound_wood_defaults(),
 		groups = {falling_node = 1, not_in_creative_inventory = 1},
 		paramtype = "light",
 		paramtype2 = "facedir",
 		light_source = 6,
+		drop = "torch_bomb:" .. name,
 		
 		on_construct = function(pos)
 			if tnt_modpath then
@@ -562,7 +564,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 		tiles = {"torch_bomb_top.png", rocket_bottom_texture, rocket_side_texture},
 		paramtype = "light",
 		paramtype2 = "facedir",
-	
+		sounds = default.node_sound_wood_defaults(),
 		groups = {tnt = 1, oddly_breakable_by_hand = 1, torch_bomb_rocket = 1},
 	
 		on_punch = function(pos, node, puncher)
@@ -605,10 +607,12 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 				}
 			},
 			rocket_bottom_texture, rocket_side_texture},
+		sounds = default.node_sound_wood_defaults(),
 		groups = {falling_node = 1, not_in_creative_inventory = 1},
 		paramtype = "light",
 		paramtype2 = "facedir",
 		light_source = 6,
+		drop = "torch_bomb:"..name.."_rocket",
 	
 		on_construct = function(pos)
 			if tnt_modpath then

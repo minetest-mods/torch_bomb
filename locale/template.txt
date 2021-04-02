@@ -9,6 +9,7 @@
 @1 Torch Crossbow=
 #material the crossbow is made out of
 Bronze=
+Mega Torch Blossom=
 Mega Torch Bomb=
 
 #help text in the fuse setting window
@@ -16,8 +17,10 @@ Rocket accelerates at 1 m/s^2.@nFuse duration from 1 to @1 seconds:=
 
 #button label
 Set=
+Small Torch Blossom=
 #material the crossbow is made out of
 Steel=
+Torch Blossom=
 Torch Bomb=
 Torch Grenade=
 #material the crossbow is made out of

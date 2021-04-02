@@ -864,3 +864,37 @@ if enable_tnt and tnt_modpath then
 		})	
 	end
 end
+
+--------------------------------------------------------------------------
+-- Admin/creative tools
+
+minetest.register_craftitem("torch_bomb:torch_blossom_1", {
+	description = S("Small Torch Blossom"),
+	inventory_image = "torch_bomb_torch_grenade.png^[multiply:#CCCC33^torch_bomb_blossom.png",
+	on_use = function(itemstack, user, pointed_thing)
+		local player_pos = user:get_pos()
+		kerblam(player_pos, user, ico1, 2)
+		return itemstack
+	end
+})
+
+minetest.register_craftitem("torch_bomb:torch_blossom_2", {
+	description = S("Torch Blossom"),
+	inventory_image = "torch_bomb_torch_grenade.png^[multiply:#CC8033^torch_bomb_blossom.png",
+	on_use = function(itemstack, user, pointed_thing)
+		local player_pos = user:get_pos()
+		kerblam(player_pos, user, ico2, 5)
+		return itemstack
+	end
+})
+
+minetest.register_craftitem("torch_bomb:torch_blossom_3", {
+	description = S("Mega Torch Blossom"),
+	inventory_image = "torch_bomb_torch_grenade.png^[multiply:#CC3333^torch_bomb_blossom.png",
+	on_use = function(itemstack, user, pointed_thing)
+		local player_pos = user:get_pos()
+		kerblam(player_pos, user, ico3, 15)
+		return itemstack
+	end
+})
+

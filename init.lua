@@ -25,7 +25,7 @@ local mcl_expl_info = {
 }
 
 local sounds = {}
-local torch_item = ""
+local torch_item
 
 if minetest.get_modpath("default") then
    torch_item = "default:torch"
@@ -39,6 +39,8 @@ if minetest.get_modpath("mcl_sounds") then
 end
 
 torch_item = minetest.settings:get("torch_bomb_torch_item") or torch_item
+
+assert(torch_item, "The mod 'torch_bomb' requires either 'default' or MineClone 2 to function properly.")
 
 local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 25
 local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50

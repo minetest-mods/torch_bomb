@@ -14,6 +14,16 @@ if enable_tnt == nil then
 	enable_tnt = minetest.is_singleplayer()
 end
 
+local mcl_expl_info = {
+   drop_chance = 1.0,
+   max_blast_resistance = 1,
+   sound = true,
+   particles = false,
+   fire = false,
+   griefing = true,
+   grief_protected = false,
+}
+
 local sounds = {}
 local torch_item
 if minetest.get_modpath("default") then
@@ -493,17 +503,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 				tnt.boom(pos, {radius=blast_radius, damage_radius=blast_radius+3})
 			end
 			if mcl_explosions_modpath then
-			   mcl_explosions.explode(pos, blast_radius,
-						  {
-						     drop_chance = 1.0,
-						     max_blast_resistance = 1,
-						     sound = true,
-						     particles = false,
-						     fire = false,
-						     griefing = true,
-						     grief_protected = false,
-						  },
-						  puncher)
+			   mcl_explosions.explode(pos, blast_radius, mcl_expl_info, puncher)
 			end
 			kerblam(pos, puncher, dirs, min_range)
 		end,
@@ -526,17 +526,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 			tnt.boom(target, {radius=blast_radius, damage_radius=blast_radius+3})
 		end
 		if mcl_explosions_modpath then
-		   mcl_explosions.explode(target, blast_radius,
-					  {
-					     drop_chance = 1.0,
-					     max_blast_resistance = 1,
-					     sound = true,
-					     particles = false,
-					     fire = false,
-					     griefing = true,
-					     grief_protected = false,
-					  },
-					  player)
+		   mcl_explosions.explode(target, blast_radius, mcl_expl_info, player)
 		end
 		kerblam(target, player, dirs, min_range)
 	end
@@ -765,17 +755,7 @@ if enable_grenade then
 					tnt.boom(lastpos, {radius=1, damage_radius=2})
 				end
 				if mcl_explosions_modpath then
-				   mcl_explosions.explode(lastpos, 1,
-							  {
-							     drop_chance = 1.0,
-							     max_blast_resistance = 1,
-							     sound = true,
-							     particles = false,
-							     fire = false,
-							     griefing = true,
-							     grief_protected = false,
-							  },
-							  player)
+				   mcl_explosions.explode(lastpos, 1, mcl_expl_info, player)
 				end
 				kerblam(lastpos, player, ico1, 2)
 			end

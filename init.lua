@@ -25,7 +25,8 @@ local mcl_expl_info = {
 }
 
 local sounds = {}
-local torch_item
+local torch_item = ""
+
 if minetest.get_modpath("default") then
    torch_item = "default:torch"
    sounds = default
@@ -37,10 +38,11 @@ if minetest.get_modpath("mcl_sounds") then
    sounds = mcl_sounds
 end
 
+torch_item = minetest.settings:get("torch_bomb_torch_item") or torch_item
+
 local grenade_range = tonumber(minetest.settings:get("torch_bomb_grenade_range")) or 25
 local bomb_range = tonumber(minetest.settings:get("torch_bomb_range")) or 50
 local mega_bomb_range = tonumber(minetest.settings:get("torch_bomb_mega_range")) or 150
-local torch_item = minetest.settings:get("torch_bomb_torch_item") or torch_item
 
 local enable_rockets = minetest.settings:get_bool("torch_bomb_enable_rockets", true)
 local rocket_max_fuse = tonumber(minetest.settings:get("torch_bomb_max_fuse")) or 14 -- 14 seconds at 1 m/s^2 is 98 meters traveled

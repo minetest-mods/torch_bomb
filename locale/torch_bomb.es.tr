@@ -1,0 +1,27 @@
+# textdomain: torch_bomb
+
+
+### init.lua ###
+
+#@1 is the type of bomb that this rocket lofts
+@1 Rocket=Cohete de @1
+#@1 is the material the crossbow is made out of
+@1 Torch Crossbow=Ballesta Antorcha de @1
+#material the crossbow is made out of
+Bronze=Bronce
+Mega Torch Blossom=Mega Antorcha de Flor
+Mega Torch Bomb=Mega Bomba de Antorcha
+
+#help text in the fuse setting window
+Rocket accelerates at 1 m/s^2.@nFuse duration from 1 to @1 seconds:=El cohete se acelera a 1 m/s^2.@nDuración del fusiblee de 1 a @1 segundos:
+
+#button label
+Set=Establecer
+Small Torch Blossom=Pequeña Antorcha de Flor
+#material the crossbow is made out of
+Steel=Hierro
+Torch Blossom=Antorcha de Flor.
+Torch Bomb=Bomba de Antorcha
+Torch Grenade=Granada de Antorcha
+#material the crossbow is made out of
+Wooden=Madera

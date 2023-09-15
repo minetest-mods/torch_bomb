@@ -326,7 +326,7 @@ minetest.after(0, function()
 end)
 
 local function play_bolt_hit(pos)
-	minetest.sound_play("torch_bomb_bolt_hit", {pos=pos, gain=1, max_hear_distance=32})
+	minetest.sound_play({name="torch_bomb_bolt_hit", gain=1}, {pos=pos, gain=1, max_hear_distance=32}, true)
 end
 
 local function embed_torch(target, placer, pos)
@@ -490,7 +490,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 		
 		on_construct = function(pos)
 			if tnt_modpath or mcl_tnt_modpath then
-				minetest.sound_play("tnt_ignite", {pos = pos})
+				minetest.sound_play({name="tnt_ignite", gain=1}, {pos = pos, max_hear_distance=16}, true)
 			end
 			minetest.get_node_timer(pos):start(3)
 			minetest.check_for_falling(pos)
@@ -656,7 +656,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 	
 		on_construct = function(pos)
 			if tnt_modpath then
-				minetest.sound_play("tnt_ignite", {pos = pos})
+				minetest.sound_play("tnt_ignite", {pos = pos, max_hear_distance=16}, true)
 			end
 			minetest.get_node_timer(pos):start(3)
 			minetest.check_for_falling(pos)
@@ -708,10 +708,12 @@ if enable_grenade then
 			
 			minetest.sound_play({name="tnt_ignite"},
 			{
+				pos=player_pos,
 				object = object,
 				gain = 1.0,
 				max_hear_distance = 32,
-			})
+			},
+			true)
 			
 			if not ((creative_mod and creative.is_enabled_for(user:get_player_name())) or
 						creative_mode_cache) then
@@ -788,7 +790,7 @@ local function register_torch_bow(name, desc, material, image, torch_bow_range, 
 			playerpos.y = playerpos.y + 1.5
 
             if not inv:contains_item("main", {name=torch_item, count=1}) then
-                minetest.sound_play("torch_bomb_crossbow_reload", {pos=playerpos, gain=1, max_hear_distance=64}) --out of ammo sound
+                minetest.sound_play("torch_bomb_crossbow_reload", {pos=playerpos, gain=1, max_hear_distance=64}, true) --out of ammo sound
                 return
             end
 
@@ -808,7 +810,7 @@ local function register_torch_bow(name, desc, material, image, torch_bow_range, 
 				embed_torch(target_pointed, user, playerpos)
 			end
 
-            minetest.sound_play("torch_bomb_crossbow_fire", {pos=playerpos, gain=1, max_hear_distance=64})
+            minetest.sound_play("torch_bomb_crossbow_fire", {pos=playerpos, gain=1, max_hear_distance=64}, true)
 
             return itemstack
         end,

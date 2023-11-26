@@ -306,7 +306,7 @@ local function find_target(raycast)
 		local above_node = minetest.get_node(above_pos)
 		local above_def = minetest.registered_nodes[above_node.name]
 
-		if above_def.buildable_to and ((under_def and not under_def.buildable_to) or not under_def) then
+		if above_def and above_def.buildable_to and ((under_def and not under_def.buildable_to) or not under_def) then
 			return next_pointed
 		end
 

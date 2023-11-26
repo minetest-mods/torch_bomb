@@ -2,7 +2,7 @@
 -- demand a "Player" object as a parameter and hopefully prevent the mods that have
 -- registered with those callbacks from crashing on a nil dereference or bad function
 -- call. This is not supposed to be a remotely functional thing, it's just supposed
--- to provide dummy methods and return values of the correct data type for anything that 
+-- to provide dummy methods and return values of the correct data type for anything that
 -- might ignore the false "is_player()" return and go ahead and try to use this thing
 -- anyway.
 
@@ -40,10 +40,10 @@ end
 function FakePlayer.create(pos, player_name)
 	local self = {}
 	setmetatable(self, FakePlayer)
-	
+
 	self.is_fake_player = player_name
 
-	-- ObjectRef	
+	-- ObjectRef
 	self.get_pos = return_value(pos)
 	self.set_pos = return_nil
 	self.move_to = return_nil
@@ -87,7 +87,7 @@ function FakePlayer.create(pos, player_name)
 	self.get_luaentity = return_nil
 
 	-- Player object
-	
+
 	self.get_player_name = return_empty_string
 	self.get_player_velocity = return_nil
 	self.get_look_dir = return_value({x=0,y=1,z=0})
@@ -112,13 +112,13 @@ function FakePlayer.create(pos, player_name)
 
 	self.set_physics_override = return_nil
 	self.get_physics_override = return_value({speed = 1, jump = 1, gravity = 1, sneak = true, sneak_glitch = false, new_move = true,})
-	
-	
+
+
 	self.hud_add = return_nil
 	self.hud_remove = return_nil
 	self.hud_change = return_nil
 	self.hud_get = return_nil -- possibly important return value?
-	self.hud_set_flags = return_nil	
+	self.hud_set_flags = return_nil
 	self.hud_get_flags = return_value({ hotbar=true, healthbar=true, crosshair=true, wielditem=true, breathbar=true, minimap=true })
 	self.hud_set_hotbar_itemcount = return_nil
 	self.hud_get_hotbar_itemcount = return_zero
@@ -128,19 +128,19 @@ function FakePlayer.create(pos, player_name)
 	self.hud_get_hotbar_selected_image = return_empty_string
 	self.set_sky = return_nil
 	self.get_sky = return_empty_table -- may need members on this table
-	
+
 	self.set_clouds = return_nil
 	self.get_clouds = return_value({density = 0, color = "#fff0f0e5", ambient = "#000000", height = 120, thickness = 16, speed = {x=0, y=-2}})
-	
+
 	self.override_day_night_ratio = return_nil
 	self.get_day_night_ratio = return_nil
-	
+
 	self.set_local_animation = return_nil
 	self.get_local_animation = return_empty_table
-	
+
 	self.set_eye_offset = return_nil
 	self.get_eye_offset = return_value({x=0,y=0,z=0},{x=0,y=0,z=0})
-	
+
 	return self
 end
 

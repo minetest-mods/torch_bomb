@@ -766,7 +766,6 @@ local function register_torch_bow(name, desc, material, image, torch_bow_range, 
     minetest.register_tool("torch_bomb:torch_crossbow_" .. name, {
         description = S("@1 Torch Crossbow", desc),
         inventory_image = image,
-        wield_scale = 1,
         stack_max = 1,
         groups = nil,
 		sound = {

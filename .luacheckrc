@@ -8,5 +8,6 @@ read_globals = {
 	"default",
 	"tnt",
 	"mcl_sounds",
-	"mcl_explosions"
+	"mcl_explosions",
+	"fakelib",
 }

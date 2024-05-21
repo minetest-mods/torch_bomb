@@ -1,12 +1,7 @@
-local modname = minetest.get_current_modname()
-local modpath = minetest.get_modpath(modname)
 local tnt_modpath = minetest.get_modpath("tnt")
 local mcl_tnt_modpath = minetest.get_modpath("mcl_tnt")
 local mcl_explosions_modpath = minetest.get_modpath("mcl_explosions")
-local S = minetest.get_translator(modname)
-
-local FakePlayer = dofile(modpath .. "/" .. "class_fakeplayer.lua")
-local fakeplayer = FakePlayer.create({x=0,y=0,z=0}, "torch_bomb")
+local S = minetest.get_translator("torch_bomb")
 
 -- Default to enabled when in singleplayer
 local enable_tnt = minetest.settings:get_bool("enable_tnt")
@@ -350,7 +345,7 @@ local function embed_torch(target, placer, pos)
 	minetest.after(math.random()*0.1, play_bolt_hit, pos)
 end
 
-local function kerblam(pos, placer, dirs, min_range)
+local function kerblam(pos, player, dirs, min_range)
 	pos = vector.round(pos)
 	local targets = {}
 	for _, pos2 in ipairs(dirs) do
@@ -362,17 +357,11 @@ local function kerblam(pos, placer, dirs, min_range)
 			end
 		end
 	end
-
-	if not placer then
-		placer = fakeplayer
-		fakeplayer:update(pos, "torch_bomb")
-	end
-
-	minetest.log("action", placer:get_player_name() .. " detonated a torch bomb at " ..
+	minetest.log("action", player:get_player_name() .. " detonated a torch bomb at " ..
 		minetest.pos_to_string(pos) .. " and placed " .. #targets .. " torches.")
 
 	for _, target in ipairs(targets) do
-		embed_torch(target, placer, pos)
+		embed_torch(target, player, pos)
 	end
 end
 
@@ -490,19 +479,22 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 		end,
 
 		on_timer = function(pos, elapsed)
-			local ignitor_name = minetest.get_meta(pos):get("torch_bomb_ignitor")
-			local puncher
-			if ignitor_name then
-				puncher = minetest.get_player_by_name(ignitor_name)
+			local player_name = minetest.get_meta(pos):get("torch_bomb_ignitor")
+			local player
+			if player_name then
+				player = minetest.get_player_by_name(player_name)
+			end
+			if not player then
+				player = fakelib.create_player(player_name)
 			end
 			minetest.set_node(pos, {name="air"})
 			if tnt_modpath then
 				tnt.boom(pos, {radius=blast_radius, damage_radius=blast_radius+3})
 			end
 			if mcl_explosions_modpath then
-			   mcl_explosions.explode(pos, blast_radius, mcl_expl_info, puncher)
+			   mcl_explosions.explode(pos, blast_radius, mcl_expl_info, player)
 			end
-			kerblam(pos, puncher, dirs, min_range)
+			kerblam(pos, player, dirs, min_range)
 		end,
 	})
 
@@ -518,6 +510,9 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 		local player
 		if player_name then
 			player = minetest.get_player_by_name(player_name)
+		end
+		if not player then
+			player = fakelib.create_player(player_name)
 		end
 		if tnt_modpath then
 			tnt.boom(target, {radius=blast_radius, damage_radius=blast_radius+3})
@@ -744,6 +739,9 @@ if enable_grenade then
 				local player
 				if player_name then
 					player = minetest.get_player_by_name(player_name)
+				end
+				if not player then
+					player = fakelib.create_player(player_name)
 				end
 				object:remove()
 				if tnt_modpath then

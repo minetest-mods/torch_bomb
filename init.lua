@@ -480,13 +480,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 
 		on_timer = function(pos, elapsed)
 			local player_name = minetest.get_meta(pos):get("torch_bomb_ignitor")
-			local player
-			if player_name then
-				player = minetest.get_player_by_name(player_name)
-			end
-			if not player then
-				player = fakelib.create_player(player_name)
-			end
+			local player = fakelib.create_player(player_name)
 			minetest.set_node(pos, {name="air"})
 			if tnt_modpath then
 				tnt.boom(pos, {radius=blast_radius, damage_radius=blast_radius+3})
@@ -507,13 +501,7 @@ local function register_torch_bomb(name, desc, dirs, min_range, blast_radius, te
 
 	local function entity_detonate(player_name, target)
 		--minetest.chat_send_all("entity detonate " .. (player_name or "") .. " " .. minetest.pos_to_string(target))
-		local player
-		if player_name then
-			player = minetest.get_player_by_name(player_name)
-		end
-		if not player then
-			player = fakelib.create_player(player_name)
-		end
+		local player = fakelib.create_player(player_name)
 		if tnt_modpath then
 			tnt.boom(target, {radius=blast_radius, damage_radius=blast_radius+3})
 		end
@@ -736,13 +724,7 @@ if enable_grenade then
 				lastpos = vector.round(lastpos)
 				local luaentity = object:get_luaentity()
 				local player_name = luaentity.player_name
-				local player
-				if player_name then
-					player = minetest.get_player_by_name(player_name)
-				end
-				if not player then
-					player = fakelib.create_player(player_name)
-				end
+				local player = fakelib.create_player(player_name)
 				object:remove()
 				if tnt_modpath then
 					tnt.boom(lastpos, {radius=1, damage_radius=2})

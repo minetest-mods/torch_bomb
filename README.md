@@ -14,4 +14,6 @@ If you want to scatter torches from the center of a cavern to reach floor and ce
 
 For precision torch placement a set of torch crossbows are included: wooden, bronze, and steel.
 
-TNT is an optional dependency for this mod, but torch bombs don't have a crafting recipe (and don't produce a damaging blast) without the tnt mod enabled.
+TNT is an optional dependency for this mod, but torch bombs don't have a crafting recipe (and don't produce a damaging blast) without the `tnt` mod enabled.
+
+The `fakelib` mod is a required dependency for simulating the placement of torches.
